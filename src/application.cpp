@@ -672,7 +672,11 @@ void Application::createSwapChain()
 
     vk::SurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
     vk::PresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-    presentMode = vk::PresentModeKHR::eFifo;
+    if (isVSyncEnabled)
+    {
+        presentMode = vk::PresentModeKHR::eFifo;
+    }
+    
     vk::Extent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
 
     uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;

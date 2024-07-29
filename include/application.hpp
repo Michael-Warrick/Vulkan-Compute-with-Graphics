@@ -280,6 +280,7 @@ private:
     const int WORKGROUP_SIZE_X = 1;
 
     GLFWwindow *window = nullptr;
+    bool isVSyncEnabled = true;
 
     vk::Instance instance;
     vk::InstanceCreateFlags flags;
