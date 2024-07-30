@@ -25,10 +25,15 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_SOURCE_DIR}/include/tiny_obj_loader/tiny_obj_loader_imp.cpp
   
   # Project
+  ${CMAKE_SOURCE_DIR}/include/utilities.hpp
+  ${CMAKE_SOURCE_DIR}/include/model.hpp
   ${CMAKE_SOURCE_DIR}/include/application.hpp
 
-  ${CMAKE_SOURCE_DIR}/src/main.cpp
+  ${CMAKE_SOURCE_DIR}/src/utilities.cpp
+  ${CMAKE_SOURCE_DIR}/src/model.cpp
   ${CMAKE_SOURCE_DIR}/src/application.cpp
+
+  ${CMAKE_SOURCE_DIR}/src/main.cpp
 )
 
 # Resource subdirectories

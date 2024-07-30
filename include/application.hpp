@@ -26,6 +26,8 @@
 #include "stb_image/stb_image.h"
 #include "tiny_obj_loader/tiny_obj_loader.h"
 
+#include "model.hpp"
+
 class Application
 {
 public:
@@ -50,65 +52,65 @@ private:
         std::vector<vk::PresentModeKHR> presentModes;
     };
 
-    struct Vertex
-    {
-        glm::vec3 position;
-        glm::vec3 color;
-        glm::vec2 textureCoordinates;
+    // struct Vertex
+    // {
+    //     glm::vec3 position;
+    //     glm::vec3 color;
+    //     glm::vec2 textureCoordinates;
 
-        static vk::VertexInputBindingDescription getBindingDescription()
-        {
-            vk::VertexInputBindingDescription bindingDescription = vk::VertexInputBindingDescription()
-                                                                       .setBinding(0)
-                                                                       .setStride(sizeof(Vertex))
-                                                                       .setInputRate(vk::VertexInputRate::eVertex);
+    //     static vk::VertexInputBindingDescription getBindingDescription()
+    //     {
+    //         vk::VertexInputBindingDescription bindingDescription = vk::VertexInputBindingDescription()
+    //                                                                    .setBinding(0)
+    //                                                                    .setStride(sizeof(Vertex))
+    //                                                                    .setInputRate(vk::VertexInputRate::eVertex);
 
-            return bindingDescription;
-        }
+    //         return bindingDescription;
+    //     }
 
-        static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions()
-        {
-            std::array<vk::VertexInputAttributeDescription, 3> attributeDescriptions{};
+    //     static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions()
+    //     {
+    //         std::array<vk::VertexInputAttributeDescription, 3> attributeDescriptions{};
 
-            attributeDescriptions[0]
-                .setBinding(0)
-                .setLocation(0)
-                .setFormat(vk::Format::eR32G32B32Sfloat)
-                .setOffset(offsetof(Vertex, position));
+    //         attributeDescriptions[0]
+    //             .setBinding(0)
+    //             .setLocation(0)
+    //             .setFormat(vk::Format::eR32G32B32Sfloat)
+    //             .setOffset(offsetof(Vertex, position));
 
-            attributeDescriptions[1]
-                .setBinding(0)
-                .setLocation(1)
-                .setFormat(vk::Format::eR32G32B32Sfloat)
-                .setOffset(offsetof(Vertex, color));
+    //         attributeDescriptions[1]
+    //             .setBinding(0)
+    //             .setLocation(1)
+    //             .setFormat(vk::Format::eR32G32B32Sfloat)
+    //             .setOffset(offsetof(Vertex, color));
 
-            attributeDescriptions[2]
-                .setBinding(0)
-                .setLocation(2)
-                .setFormat(vk::Format::eR32G32Sfloat)
-                .setOffset(offsetof(Vertex, textureCoordinates));
+    //         attributeDescriptions[2]
+    //             .setBinding(0)
+    //             .setLocation(2)
+    //             .setFormat(vk::Format::eR32G32Sfloat)
+    //             .setOffset(offsetof(Vertex, textureCoordinates));
 
-            return attributeDescriptions;
-        }
+    //         return attributeDescriptions;
+    //     }
 
-        bool operator==(const Vertex &other) const
-        {
-            return position == other.position && color == other.color && textureCoordinates == other.textureCoordinates;
-        }
+    //     bool operator==(const Vertex &other) const
+    //     {
+    //         return position == other.position && color == other.color && textureCoordinates == other.textureCoordinates;
+    //     }
 
-        friend struct std::hash<Vertex>;
-    };
+    //     friend struct std::hash<Vertex>;
+    // };
 
-    struct VertexHasher
-    {
-        size_t operator()(Vertex const &vertex) const
-        {
-            return ((std::hash<glm::vec3>()(vertex.position) ^
-                     (std::hash<glm::vec3>()(vertex.color) << 1)) >>
-                    1) ^
-                   (std::hash<glm::vec2>()(vertex.textureCoordinates) << 1);
-        }
-    };
+    // struct VertexHasher
+    // {
+    //     size_t operator()(Vertex const &vertex) const
+    //     {
+    //         return ((std::hash<glm::vec3>()(vertex.position) ^
+    //                  (std::hash<glm::vec3>()(vertex.color) << 1)) >>
+    //                 1) ^
+    //                (std::hash<glm::vec2>()(vertex.textureCoordinates) << 1);
+    //     }
+    // };
 
     struct UniformBufferObject
     {
@@ -360,12 +362,12 @@ private:
 
     bool framebufferResized = false;
 
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-    vk::Buffer vertexBuffer;
-    vk::DeviceMemory vertexBufferMemory;
-    vk::Buffer indexBuffer;
-    vk::DeviceMemory indexBufferMemory;
+    // std::vector<Vertex> vertices;
+    // std::vector<uint32_t> indices;
+    // vk::Buffer vertexBuffer;
+    // vk::DeviceMemory vertexBufferMemory;
+    // vk::Buffer indexBuffer;
+    // vk::DeviceMemory indexBufferMemory;
 
     std::vector<vk::Buffer> uniformBuffers;
     std::vector<vk::DeviceMemory> uniformBuffersMemory;
@@ -397,6 +399,8 @@ private:
 
     const std::string MODEL_PATH = "resources/models/football/football.obj";
     const std::string TEXTURE_PATH = "resources/models/football/football.png";
+
+    Model footballModel;
 
     vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
 };

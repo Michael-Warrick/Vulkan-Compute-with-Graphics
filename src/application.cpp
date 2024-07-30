@@ -18,7 +18,7 @@ void Application::initWindow()
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    window = glfwCreateWindow(800, 600, "Vulkan Compute with Graphics", nullptr, nullptr);
+    window = glfwCreateWindow(2560, 1440, "Vulkan Compute with Graphics", nullptr, nullptr);
     glfwSetWindowUserPointer(window, this);
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 }
@@ -47,9 +47,8 @@ void Application::initVulkan()
     createTextureImage(TEXTURE_PATH.c_str());
     createTextureImageView();
     createTextureSampler();
-    loadModel(MODEL_PATH.c_str());
-    createVertexBuffer();
-    createIndexBuffer();
+
+    footballModel.Load(MODEL_PATH.c_str(), physicalDevice, logicalDevice, graphicsQueue, commandPool);
 
     createComputeCommandPool();
 
@@ -115,11 +114,9 @@ void Application::shutdown()
     logicalDevice.destroyDescriptorSetLayout(graphicsDescriptorSetLayout);
     logicalDevice.destroyDescriptorSetLayout(computeDescriptorSetLayout);
 
-    logicalDevice.destroyBuffer(indexBuffer);
-    logicalDevice.freeMemory(indexBufferMemory);
+    // Destroy models here
 
-    logicalDevice.destroyBuffer(vertexBuffer);
-    logicalDevice.freeMemory(vertexBufferMemory);
+    footballModel.Destroy(logicalDevice);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -763,8 +760,8 @@ void Application::createGraphicsPipeline()
                                                                           .setPName("main");
     vk::PipelineShaderStageCreateInfo shaderStages[] = {vertexShaderStageCreateInfo, fragmentShaderStageCreateInfo};
 
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+    auto bindingDescription = Model::Vertex::getBindingDescription();
+    auto attributeDescriptions = Model::Vertex::getAttributeDescriptions();
 
     vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo = vk::PipelineVertexInputStateCreateInfo()
                                                                        .setVertexBindingDescriptionCount(1)
@@ -1162,14 +1159,10 @@ void Application::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t 
                              .setExtent(swapChainExtent);
     commandBuffer.setScissor(0, 1, &scissor);
 
-    vk::Buffer vertexBuffers[] = {vertexBuffer};
-    vk::DeviceSize offsets[] = {0};
-    commandBuffer.bindVertexBuffers(0, 1, vertexBuffers, offsets);
-    commandBuffer.bindIndexBuffer(indexBuffer, 0, vk::IndexType::eUint32);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipelineLayout, 0, 1,
                                      &graphicsDescriptorSets[currentFrame], 0, nullptr);
 
-    commandBuffer.drawIndexed(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+    footballModel.Draw(commandBuffer);
 
     commandBuffer.endRenderPass();
     commandBuffer.end();
@@ -1382,62 +1375,6 @@ void Application::framebufferResizeCallback(GLFWwindow *window, int width, int h
 {
     auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(window));
     app->framebufferResized = true;
-}
-
-void Application::createVertexBuffer()
-{
-    vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-
-    vk::Buffer stagingBuffer;
-    vk::DeviceMemory stagingBufferMemory;
-    createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
-                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer,
-                 stagingBufferMemory);
-
-    void *data;
-    vk::Result result = logicalDevice.mapMemory(stagingBufferMemory, 0, bufferSize, vk::MemoryMapFlags(), &data);
-    if (result != vk::Result::eSuccess)
-    {
-        throw std::runtime_error("Failed to map vertex buffer memory! Error Code: " + vk::to_string(result));
-    }
-
-    memcpy(data, vertices.data(), (size_t)bufferSize);
-    logicalDevice.unmapMemory(stagingBufferMemory);
-
-    createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
-                 vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBuffer, vertexBufferMemory);
-    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-
-    logicalDevice.destroyBuffer(stagingBuffer);
-    logicalDevice.freeMemory(stagingBufferMemory);
-}
-
-void Application::createIndexBuffer()
-{
-    vk::DeviceSize bufferSize = sizeof(indices[0]) * indices.size();
-
-    vk::Buffer stagingBuffer;
-    vk::DeviceMemory stagingBufferMemory;
-    createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
-                 vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer,
-                 stagingBufferMemory);
-
-    void *data;
-    vk::Result result = logicalDevice.mapMemory(stagingBufferMemory, 0, bufferSize, vk::MemoryMapFlags(), &data);
-    if (result != vk::Result::eSuccess)
-    {
-        throw std::runtime_error("Failed to map vertex buffer memory! Error Code: " + vk::to_string(result));
-    }
-
-    memcpy(data, indices.data(), (size_t)bufferSize);
-    logicalDevice.unmapMemory(stagingBufferMemory);
-
-    createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
-                 vk::MemoryPropertyFlagBits::eDeviceLocal, indexBuffer, indexBufferMemory);
-    copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-
-    logicalDevice.destroyBuffer(stagingBuffer);
-    logicalDevice.freeMemory(stagingBufferMemory);
 }
 
 uint32_t Application::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties)
@@ -2076,48 +2013,6 @@ vk::Format Application::findDepthFormat()
 bool Application::hasStencilComponent(vk::Format format)
 {
     return format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD24UnormS8Uint;
-}
-
-void Application::loadModel(const char *modelPath)
-{
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-    std::string warning, error;
-
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warning, &error, modelPath))
-    {
-        throw std::runtime_error(warning + error);
-    }
-
-    std::unordered_map<Vertex, uint32_t, VertexHasher> uniqueVertices{};
-
-    for (const auto &shape : shapes)
-    {
-        for (const auto &index : shape.mesh.indices)
-        {
-            Vertex vertex{};
-
-            vertex.position = {
-                attrib.vertices[3 * index.vertex_index + 0],
-                attrib.vertices[3 * index.vertex_index + 1],
-                attrib.vertices[3 * index.vertex_index + 2]};
-
-            vertex.textureCoordinates = {
-                attrib.texcoords[2 * index.texcoord_index + 0],
-                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]};
-
-            vertex.color = {1.0f, 1.0f, 1.0f};
-
-            if (uniqueVertices.count(vertex) == 0)
-            {
-                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-                vertices.push_back(vertex);
-            }
-
-            indices.push_back(uniqueVertices[vertex]);
-        }
-    }
 }
 
 // Create a way to pre-generate mipmap levels as a way to cache them for faster runtime texture loading...
