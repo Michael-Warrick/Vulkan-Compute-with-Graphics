@@ -71,16 +71,7 @@ mat4 rotate(mat4 model, float angleInRadians, vec3 axis) {
 
 void main() 
 {
-    // float frequency = 0.5;
-    // float amplitude = 0.1;
-
-    // float sineWave = sin(ubo.deltaTime * frequency * 2.0 * 3.14159265358979323846);
-    // vec3 translation = vec3(0.0, amplitude * sineWave, 0.0);
-    // vec3 rotationAxis = vec3(0.0, 1.0, 0.0);
-
-    mat4 transformedModel;
-    transformedModel = translate(ubo.model, computeParticles[0].position);
-    // transformedModel = rotate(transformedModel, (ubo.deltaTime * 0.4) * degreesToRadians(90.0), rotationAxis);
+    mat4 transformedModel = translate(ubo.model, computeParticles[0].position);
     gl_Position = ubo.projection * ubo.view * transformedModel * vec4(inPosition, 1.0);
 
     fragColor = inColor;

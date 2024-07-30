@@ -30,6 +30,7 @@ CTestTestfile.cmake
 _deps
 
 # Project specific stuff
+.vscode
 build/
 cmake-build-debug/
 cmake-build-release/

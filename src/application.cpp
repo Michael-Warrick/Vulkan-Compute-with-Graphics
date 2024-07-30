@@ -49,6 +49,7 @@ void Application::initVulkan()
     createTextureSampler();
 
     footballModel.Load(MODEL_PATH.c_str(), physicalDevice, logicalDevice, graphicsQueue, commandPool);
+    otherFootballModel.Load(MODEL_PATH.c_str(), physicalDevice, logicalDevice, graphicsQueue, commandPool);
 
     createComputeCommandPool();
 
@@ -116,6 +117,7 @@ void Application::shutdown()
 
     // Destroy models here
 
+    otherFootballModel.Destroy(logicalDevice);
     footballModel.Destroy(logicalDevice);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -1476,6 +1478,9 @@ void Application::createShaderStorageBuffers()
     std::vector<Particle> particles(PARTICLE_COUNT);
     particles[0].position = glm::vec3(0.0f, 1.0f, 0.0f);
     particles[0].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+
+    particles[1].position = glm::vec3(0.25f, 1.0f, 0.0f);
+    particles[1].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 
     // Creating a staging buffer to upload data to the GPU
     vk::Buffer stagingBuffer;

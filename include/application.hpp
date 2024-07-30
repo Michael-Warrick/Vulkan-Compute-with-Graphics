@@ -126,8 +126,8 @@ private:
 
     struct Particle
     {
-        glm::vec3 position;
-        glm::vec3 velocity;
+        alignas(16) glm::vec3 position;
+        alignas(16) glm::vec3 velocity;
         float radius;
 
         static vk::VertexInputBindingDescription getBindingDescription()
@@ -274,7 +274,7 @@ private:
     void createColorResources();
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
-    const int PARTICLE_COUNT = 1;
+    const int PARTICLE_COUNT = 2;
     const int WORKGROUP_SIZE_X = 1;
 
     GLFWwindow *window = nullptr;
@@ -401,6 +401,7 @@ private:
     const std::string TEXTURE_PATH = "resources/models/football/football.png";
 
     Model footballModel;
+    Model otherFootballModel;
 
     vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
 };

@@ -21,9 +21,9 @@ class Model
 public:
     struct Vertex
     {
-        glm::vec3 position;
-        glm::vec3 color;
-        glm::vec2 textureCoordinates;
+        alignas(16)glm::vec3 position;
+        alignas(16)glm::vec3 color;
+        alignas(16)glm::vec2 textureCoordinates;
 
         static vk::VertexInputBindingDescription getBindingDescription()
         {
