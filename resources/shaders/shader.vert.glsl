@@ -36,10 +36,9 @@ mat4 translate(mat4 matrix, vec3 translation) {
     return translationMatrix * matrix;
 }
 
-
 // Degrees to radians helper function
 float degreesToRadians(float angleInDegrees) {
-    return angleInDegrees * 3.14159265358979323846 / 180.0;
+    return angleInDegrees * PI / 180.0;
 }
 
 // Reimplementation of glm::rotate()
@@ -71,7 +70,8 @@ mat4 rotate(mat4 model, float angleInRadians, vec3 axis) {
 
 void main() 
 {
-    mat4 transformedModel = translate(ubo.model, computeParticles[0].position);
+    uint instanceIndex = gl_InstanceIndex;
+    mat4 transformedModel = translate(ubo.model, computeParticles[instanceIndex].position);
     gl_Position = ubo.projection * ubo.view * transformedModel * vec4(inPosition, 1.0);
 
     fragColor = inColor;

@@ -7,6 +7,13 @@ void Model::Load(const char *modelPath, vk::PhysicalDevice physicalDevice, vk::D
     createIndexBuffer(physicalDevice, logicalDevice, queue, commandPool);
 }
 
+void Model::LoadInstantiable(const char *modelPath, uint32_t instanceCount, vk::PhysicalDevice physicalDevice, vk::Device logicalDevice, vk::Queue queue, vk::CommandPool commandPool) 
+{
+    loadModel(modelPath);
+    createVertexBuffer(physicalDevice, logicalDevice, queue, commandPool);
+    createIndexBuffer(physicalDevice, logicalDevice, queue, commandPool);
+}
+
 void Model::Draw(vk::CommandBuffer commandBuffer) 
 {
     vk::Buffer vertexBuffers[] = {vertexBuffer};
@@ -15,6 +22,16 @@ void Model::Draw(vk::CommandBuffer commandBuffer)
     commandBuffer.bindIndexBuffer(indexBuffer, 0, vk::IndexType::eUint32);
 
     commandBuffer.drawIndexed(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+}
+
+void Model::DrawInstanced(vk::CommandBuffer commandBuffer, uint32_t instanceCount) 
+{
+    vk::Buffer vertexBuffers[] = {vertexBuffer};
+    vk::DeviceSize offsets[] = {0};
+    commandBuffer.bindVertexBuffers(0, 1, vertexBuffers, offsets);
+    commandBuffer.bindIndexBuffer(indexBuffer, 0, vk::IndexType::eUint32);
+
+    commandBuffer.drawIndexed(static_cast<uint32_t>(indices.size()), instanceCount, 0, 0, 0);
 }
 
 void Model::Destroy(vk::Device logicalDevice) 

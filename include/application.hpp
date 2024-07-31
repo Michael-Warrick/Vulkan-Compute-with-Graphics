@@ -274,7 +274,7 @@ private:
     void createColorResources();
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
-    const int PARTICLE_COUNT = 2;
+    const int PARTICLE_COUNT = 3;
     const int WORKGROUP_SIZE_X = 1;
 
     GLFWwindow *window = nullptr;
@@ -400,8 +400,11 @@ private:
     const std::string MODEL_PATH = "resources/models/football/football.obj";
     const std::string TEXTURE_PATH = "resources/models/football/football.png";
 
+    const std::string GROUND_MODEL_PATH = "resources/models/ground/ground.obj";
+    const std::string GROUND_TEXTURE_PATH = "resources/models/ground/ground.png";
+
     Model footballModel;
-    Model otherFootballModel;
+    Model groundModel;
 
     vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
 };

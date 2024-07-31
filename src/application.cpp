@@ -44,12 +44,12 @@ void Application::initVulkan()
     createColorResources();
     createDepthResources();
     createFramebuffers();
+
     createTextureImage(TEXTURE_PATH.c_str());
     createTextureImageView();
     createTextureSampler();
 
     footballModel.Load(MODEL_PATH.c_str(), physicalDevice, logicalDevice, graphicsQueue, commandPool);
-    otherFootballModel.Load(MODEL_PATH.c_str(), physicalDevice, logicalDevice, graphicsQueue, commandPool);
 
     createComputeCommandPool();
 
@@ -116,8 +116,6 @@ void Application::shutdown()
     logicalDevice.destroyDescriptorSetLayout(computeDescriptorSetLayout);
 
     // Destroy models here
-
-    otherFootballModel.Destroy(logicalDevice);
     footballModel.Destroy(logicalDevice);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -675,7 +673,7 @@ void Application::createSwapChain()
     {
         presentMode = vk::PresentModeKHR::eFifo;
     }
-    
+
     vk::Extent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
 
     uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
@@ -762,12 +760,12 @@ void Application::createGraphicsPipeline()
                                                                           .setPName("main");
     vk::PipelineShaderStageCreateInfo shaderStages[] = {vertexShaderStageCreateInfo, fragmentShaderStageCreateInfo};
 
-    auto bindingDescription = Model::Vertex::getBindingDescription();
+    auto bindingDescriptions = Model::Vertex::getBindingDescriptions();
     auto attributeDescriptions = Model::Vertex::getAttributeDescriptions();
 
     vk::PipelineVertexInputStateCreateInfo vertexInputCreateInfo = vk::PipelineVertexInputStateCreateInfo()
-                                                                       .setVertexBindingDescriptionCount(1)
-                                                                       .setPVertexBindingDescriptions(&bindingDescription)
+                                                                       .setVertexBindingDescriptionCount(static_cast<uint32_t>(bindingDescriptions.size()))
+                                                                       .setPVertexBindingDescriptions(bindingDescriptions.data())
                                                                        .setVertexAttributeDescriptionCount(static_cast<uint32_t>(attributeDescriptions.size()))
                                                                        .setPVertexAttributeDescriptions(attributeDescriptions.data());
 
@@ -1164,7 +1162,7 @@ void Application::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t 
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipelineLayout, 0, 1,
                                      &graphicsDescriptorSets[currentFrame], 0, nullptr);
 
-    footballModel.Draw(commandBuffer);
+    footballModel.DrawInstanced(commandBuffer, PARTICLE_COUNT);
 
     commandBuffer.endRenderPass();
     commandBuffer.end();
@@ -1476,11 +1474,15 @@ void Application::createShaderStorageBuffers()
     vk::DeviceSize bufferSize = sizeof(Particle) * PARTICLE_COUNT;
 
     std::vector<Particle> particles(PARTICLE_COUNT);
-    particles[0].position = glm::vec3(0.0f, 1.0f, 0.0f);
+
+    particles[0].position = glm::vec3(1.0f, 1.15f, 0.0f);
     particles[0].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 
-    particles[1].position = glm::vec3(0.25f, 1.0f, 0.0f);
+    particles[1].position = glm::vec3(0.0f, 1.0f, 0.0f);
     particles[1].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+
+    particles[2].position = glm::vec3(-1.0f, 1.23f, 0.0f);
+    particles[2].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 
     // Creating a staging buffer to upload data to the GPU
     vk::Buffer stagingBuffer;
@@ -1567,7 +1569,7 @@ void Application::updateUniformBuffer(uint32_t currentImage)
 
     float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    glm::vec3 cameraPosition(0.0f, 0.0f, -1.0f);
+    glm::vec3 cameraPosition(0.0f, 0.5f, -1.0f);
     glm::vec3 cameraLookPosition(0.0f, 0.0f, 0.0f);
     glm::vec3 cameraUp(0.0f, 1.0f, 0.0f);
 
@@ -1598,7 +1600,6 @@ void Application::updateComputeUniformBuffer(uint32_t currentImage)
     float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     ComputeUniformBufferObject computeUBO;
-    // computeUBO.physicsTimeStep = (1.0f / 60.0f) * deltaTime;
     computeUBO.physicsTimeStep = 1.0f / 60.0f;
 
     memcpy(computeUniformBuffersMapped[currentImage], &computeUBO, sizeof(computeUBO));

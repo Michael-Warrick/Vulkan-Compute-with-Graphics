@@ -21,18 +21,30 @@ class Model
 public:
     struct Vertex
     {
-        alignas(16)glm::vec3 position;
-        alignas(16)glm::vec3 color;
-        alignas(16)glm::vec2 textureCoordinates;
+        alignas(16) glm::vec3 position;
+        alignas(16) glm::vec3 color;
+        alignas(16) glm::vec2 textureCoordinates;
 
-        static vk::VertexInputBindingDescription getBindingDescription()
+        static std::array<vk::VertexInputBindingDescription, 1> getBindingDescriptions()
         {
-            vk::VertexInputBindingDescription bindingDescription = vk::VertexInputBindingDescription()
-                                                                       .setBinding(0)
-                                                                       .setStride(sizeof(Vertex))
-                                                                       .setInputRate(vk::VertexInputRate::eVertex);
+            std::array<vk::VertexInputBindingDescription, 1> bindingDescriptions{};
 
-            return bindingDescription;
+            bindingDescriptions[0]
+                .setBinding(0)
+                .setStride(sizeof(Vertex))
+                .setInputRate(vk::VertexInputRate::eVertex);
+
+            // bindingDescriptions[1]
+            //     .setBinding(0)
+            //     .setStride(sizeof(uint32_t))
+            //     .setInputRate(vk::VertexInputRate::eInstance);
+
+            // vk::VertexInputBindingDescription bindingDescription = vk::VertexInputBindingDescription()
+            //                                                            .setBinding(0)
+            //                                                            .setStride(sizeof(Vertex))
+            //                                                            .setInputRate(vk::VertexInputRate::eVertex);
+
+            return bindingDescriptions;
         }
 
         static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions()
@@ -80,7 +92,9 @@ public:
     };
 
     void Load(const char *modelPath, vk::PhysicalDevice physicalDevice, vk::Device logicalDevice, vk::Queue queue, vk::CommandPool commandPool);
+    void LoadInstantiable(const char *modelPath, uint32_t instanceData, vk::PhysicalDevice physicalDevice, vk::Device logicalDevice, vk::Queue queue, vk::CommandPool commandPool);
     void Draw(vk::CommandBuffer commandBuffer);
+    void DrawInstanced(vk::CommandBuffer commandBuffer, uint32_t instanceCount);
     void Destroy(vk::Device logicalDevice);
 
 private:
