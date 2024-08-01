@@ -124,37 +124,78 @@ private:
         float physicsTimeStep;
     };
 
-    struct Particle
+    struct PhysicsObject
     {
         alignas(16) glm::vec3 position;
+        alignas(16) glm::quat rotation;
         alignas(16) glm::vec3 velocity;
+        alignas(16) glm::vec3 angularVelocity;
         float radius;
+        float mass;
+        float elasticity; // Coefficient of Restitution based on empirical measurements
+        float momentOfInertia;
 
         static vk::VertexInputBindingDescription getBindingDescription()
         {
             vk::VertexInputBindingDescription bindingDescription = vk::VertexInputBindingDescription()
                                                                        .setBinding(0)
-                                                                       .setStride(sizeof(Particle))
+                                                                       .setStride(sizeof(PhysicsObject))
                                                                        .setInputRate(vk::VertexInputRate::eVertex);
 
             return bindingDescription;
         }
 
-        static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescriptions()
+        static std::array<vk::VertexInputAttributeDescription, 8> getAttributeDescriptions()
         {
-            std::array<vk::VertexInputAttributeDescription, 2> attributeDescriptions;
+            std::array<vk::VertexInputAttributeDescription, 8> attributeDescriptions;
 
             attributeDescriptions[0] = vk::VertexInputAttributeDescription()
                                            .setBinding(0)
                                            .setLocation(0)
                                            .setFormat(vk::Format::eR32G32B32Sfloat)
-                                           .setOffset(offsetof(Particle, position));
+                                           .setOffset(offsetof(PhysicsObject, position));
 
             attributeDescriptions[1] = vk::VertexInputAttributeDescription()
                                            .setBinding(0)
                                            .setLocation(1)
+                                           .setFormat(vk::Format::eR32G32B32A32Sfloat)
+                                           .setOffset(offsetof(PhysicsObject, rotation));
+
+            attributeDescriptions[2] = vk::VertexInputAttributeDescription()
+                                           .setBinding(0)
+                                           .setLocation(2)
                                            .setFormat(vk::Format::eR32G32B32Sfloat)
-                                           .setOffset(offsetof(Particle, velocity));
+                                           .setOffset(offsetof(PhysicsObject, velocity));
+
+            attributeDescriptions[3] = vk::VertexInputAttributeDescription()
+                                           .setBinding(0)
+                                           .setLocation(3)
+                                           .setFormat(vk::Format::eR32G32B32Sfloat)
+                                           .setOffset(offsetof(PhysicsObject, angularVelocity));
+
+            attributeDescriptions[4] = vk::VertexInputAttributeDescription()
+                                           .setBinding(0)
+                                           .setLocation(4)
+                                           .setFormat(vk::Format::eR32Sfloat)
+                                           .setOffset(offsetof(PhysicsObject, radius));
+                                           
+            attributeDescriptions[5] = vk::VertexInputAttributeDescription()
+                                           .setBinding(0)
+                                           .setLocation(5)
+                                           .setFormat(vk::Format::eR32Sfloat)
+                                           .setOffset(offsetof(PhysicsObject, mass));
+
+            attributeDescriptions[6] = vk::VertexInputAttributeDescription()
+                                           .setBinding(0)
+                                           .setLocation(6)
+                                           .setFormat(vk::Format::eR32Sfloat)
+                                           .setOffset(offsetof(PhysicsObject, elasticity));
+
+            attributeDescriptions[7] = vk::VertexInputAttributeDescription()
+                                           .setBinding(0)
+                                           .setLocation(7)
+                                           .setFormat(vk::Format::eR32Sfloat)
+                                           .setOffset(offsetof(PhysicsObject, momentOfInertia));
 
             return attributeDescriptions;
         }
@@ -274,7 +315,7 @@ private:
     void createColorResources();
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
-    const int PARTICLE_COUNT = 3;
+    const int PHYSICS_OBJECT_COUNT = 3;
     const int WORKGROUP_SIZE_X = 1;
 
     GLFWwindow *window = nullptr;

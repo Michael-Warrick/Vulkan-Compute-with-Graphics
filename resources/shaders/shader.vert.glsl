@@ -16,13 +16,19 @@ layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragTexCoords;
 
 // Structure to hold particle data
-struct Particle {
+struct PhysicsObject {
     vec3 position;
+    vec4 rotation;
     vec3 velocity;
+    vec3 angularVelocity;
+    float radius;
+    float mass;
+    float elasticity;
+    float momentOfInertia;
 };
 
-layout(set = 0, binding = 2) buffer ParticleBuffer {
-    Particle computeParticles[];
+layout(set = 0, binding = 2) buffer PhysicsObjectBuffer {
+    PhysicsObject physicsObjects[];
 };
 
 // Reimplementation of glm::translate()
@@ -68,10 +74,24 @@ mat4 rotate(mat4 model, float angleInRadians, vec3 axis) {
     return rotation * model;
 }
 
+mat4 scale(mat4 matrix, float scalingFactor) {
+    mat4 scalingMatrix = mat4(
+        scalingFactor, 0.0, 0.0, 0.0,
+        0.0, scalingFactor, 0.0, 0.0,
+        0.0, 0.0, scalingFactor, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    );
+
+    return scalingMatrix * matrix;
+}
+
 void main() 
 {
     uint instanceIndex = gl_InstanceIndex;
-    mat4 transformedModel = translate(ubo.model, computeParticles[instanceIndex].position);
+    
+    mat4 transformedModel = scale(ubo.model, (physicsObjects[instanceIndex].radius * 2) / 0.23);
+    transformedModel = translate(transformedModel, physicsObjects[instanceIndex].position);
+
     gl_Position = ubo.projection * ubo.view * transformedModel * vec4(inPosition, 1.0);
 
     fragColor = inColor;

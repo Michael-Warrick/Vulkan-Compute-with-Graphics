@@ -1162,7 +1162,7 @@ void Application::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t 
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipelineLayout, 0, 1,
                                      &graphicsDescriptorSets[currentFrame], 0, nullptr);
 
-    footballModel.DrawInstanced(commandBuffer, PARTICLE_COUNT);
+    footballModel.DrawInstanced(commandBuffer, PHYSICS_OBJECT_COUNT);
 
     commandBuffer.endRenderPass();
     commandBuffer.end();
@@ -1471,18 +1471,36 @@ void Application::createGraphicsDescriptorSetLayout()
 
 void Application::createShaderStorageBuffers()
 {
-    vk::DeviceSize bufferSize = sizeof(Particle) * PARTICLE_COUNT;
+    vk::DeviceSize bufferSize = sizeof(PhysicsObject) * PHYSICS_OBJECT_COUNT;
 
-    std::vector<Particle> particles(PARTICLE_COUNT);
+    std::vector<PhysicsObject> physicsObjects(PHYSICS_OBJECT_COUNT);
 
-    particles[0].position = glm::vec3(1.0f, 1.15f, 0.0f);
-    particles[0].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+    physicsObjects[0].position = glm::vec3(0.2f, 1.0f, 0.0f);
+    physicsObjects[0].rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+    physicsObjects[0].velocity = glm::vec3(0.0f);
+    physicsObjects[0].angularVelocity = glm::vec3(0.0f);
+    physicsObjects[0].radius = 0.115f;
+    physicsObjects[0].mass = 0.45f;
+    physicsObjects[0].elasticity = 0.8f;
+    physicsObjects[0].momentOfInertia = (2.0f / 5.0f) * physicsObjects[0].mass * (physicsObjects[0].radius * physicsObjects[0].radius);
 
-    particles[1].position = glm::vec3(0.0f, 1.0f, 0.0f);
-    particles[1].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+    physicsObjects[1].position = glm::vec3(0.0f, 0.8f, 0.0f);
+    physicsObjects[1].rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+    physicsObjects[1].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+    physicsObjects[1].angularVelocity = glm::vec3(0.0f);
+    physicsObjects[1].radius = 0.115f;
+    physicsObjects[1].mass = 0.45f;
+    physicsObjects[1].elasticity = 0.8f;
+    physicsObjects[1].momentOfInertia = (2.0f / 5.0f) * physicsObjects[1].mass * (physicsObjects[1].radius * physicsObjects[1].radius);
 
-    particles[2].position = glm::vec3(-1.0f, 1.23f, 0.0f);
-    particles[2].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+    physicsObjects[2].position = glm::vec3(-0.2f, 1.0f, 0.0f);
+    physicsObjects[2].rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+    physicsObjects[2].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+    physicsObjects[2].angularVelocity = glm::vec3(0.0f);
+    physicsObjects[2].radius = 0.115f;
+    physicsObjects[2].mass = 0.45f;
+    physicsObjects[2].elasticity = 0.8f;
+    physicsObjects[2].momentOfInertia = (2.0f / 5.0f) * physicsObjects[2].mass * (physicsObjects[2].radius * physicsObjects[2].radius);
 
     // Creating a staging buffer to upload data to the GPU
     vk::Buffer stagingBuffer;
@@ -1497,7 +1515,7 @@ void Application::createShaderStorageBuffers()
         throw std::runtime_error("Failed to map uniform buffer memory! Error Code: " + vk::to_string(result));
     }
 
-    memcpy(data, particles.data(), (size_t)bufferSize);
+    memcpy(data, physicsObjects.data(), (size_t)bufferSize);
     logicalDevice.unmapMemory(stagingBufferMemory);
 
     shaderStorageBuffers.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1582,7 +1600,7 @@ void Application::updateUniformBuffer(uint32_t currentImage)
 
     UniformBufferObject ubo;
     ubo.model = glm::translate(glm::mat4(1.0f), footballPosition);
-    ubo.model = glm::rotate(ubo.model, (deltaTime * 0.4f) * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    // ubo.model = glm::rotate(ubo.model, (deltaTime * 0.4f) * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     ubo.view = glm::lookAt(cameraPosition, cameraLookPosition, cameraUp);
     ubo.projection = glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
 
@@ -2195,12 +2213,12 @@ void Application::createComputeDescriptorSets()
         vk::DescriptorBufferInfo storageBufferInfoLastFrame = vk::DescriptorBufferInfo()
                                                                   .setBuffer(shaderStorageBuffers[(i - 1) % MAX_FRAMES_IN_FLIGHT])
                                                                   .setOffset(0)
-                                                                  .setRange(sizeof(Particle) * PARTICLE_COUNT);
+                                                                  .setRange(sizeof(PhysicsObject) * PHYSICS_OBJECT_COUNT);
 
         vk::DescriptorBufferInfo storageBufferInfoCurrentFrame = vk::DescriptorBufferInfo()
                                                                      .setBuffer(shaderStorageBuffers[i])
                                                                      .setOffset(0)
-                                                                     .setRange(sizeof(Particle) * PARTICLE_COUNT);
+                                                                     .setRange(sizeof(PhysicsObject) * PHYSICS_OBJECT_COUNT);
 
         std::array<vk::WriteDescriptorSet, 3> descriptorWrites;
         descriptorWrites[0] = vk::WriteDescriptorSet()
@@ -2259,7 +2277,7 @@ void Application::recordComputeCommandBuffer(vk::CommandBuffer commandBuffer)
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, computePipeline);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, computePipelineLayout, 0, 1, &computeDescriptorSets[currentFrame], 0, nullptr);
-    commandBuffer.dispatch(PARTICLE_COUNT / WORKGROUP_SIZE_X, 1, 1);
+    commandBuffer.dispatch(PHYSICS_OBJECT_COUNT / WORKGROUP_SIZE_X, 1, 1);
 
     commandBuffer.end();
 }
