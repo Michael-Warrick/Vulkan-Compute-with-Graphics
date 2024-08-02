@@ -1469,38 +1469,53 @@ void Application::createGraphicsDescriptorSetLayout()
     }
 }
 
+std::vector<Application::PhysicsObject> Application::createSphereBox(uint32_t boxSize, float sphereRadius)
+{
+    std::vector<PhysicsObject> physicsObjects(boxSize * boxSize * boxSize);
+
+    // Calculate box dimensions based on sphere radius and count
+    float boxWidth = (boxSize - 1) * sphereRadius * 2.0f;
+    float boxHeight = (boxSize - 1) * sphereRadius * 2.0f;
+    float boxDepth = (boxSize - 1) * sphereRadius * 2.0f;
+
+    // Iterate through the grid
+    int index = 0;
+    for (int x = 0; x < boxSize; ++x)
+    {
+        for (int y = 0; y < boxSize; ++y)
+        {
+            for (int z = 0; z < boxSize; ++z)
+            {
+                // Calculate sphere position
+                float xPos = -boxWidth / 2.0f + x * sphereRadius * 2.0f + sphereRadius;
+                float yPos = -boxHeight / 2.0f + y * sphereRadius * 2.0f + sphereRadius;
+                float zPos = -boxDepth / 2.0f + z * sphereRadius * 2.0f + sphereRadius;
+
+                physicsObjects[index].position = glm::vec3(xPos, yPos + 2.0f, zPos);
+                physicsObjects[index].rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+                physicsObjects[index].velocity = glm::vec3(0.0f);
+                physicsObjects[index].angularVelocity = glm::vec3(0.0f);
+                physicsObjects[index].radius = 0.115f;
+                physicsObjects[index].mass = 0.45f;
+                physicsObjects[index].elasticity = 0.8f;
+                physicsObjects[index].momentOfInertia = (2.0f / 5.0f) * physicsObjects[index].mass * (physicsObjects[index].radius * physicsObjects[index].radius);
+
+                index++;
+            }
+        }
+    }
+
+    return physicsObjects;
+}
+
 void Application::createShaderStorageBuffers()
 {
+    std::vector<PhysicsObject> objects = createSphereBox(16, 0.115f);
+    PHYSICS_OBJECT_COUNT = objects.size();
+
+    std::cout << "Physics Object Count: " << PHYSICS_OBJECT_COUNT << std::endl;
+
     vk::DeviceSize bufferSize = sizeof(PhysicsObject) * PHYSICS_OBJECT_COUNT;
-
-    std::vector<PhysicsObject> physicsObjects(PHYSICS_OBJECT_COUNT);
-
-    physicsObjects[0].position = glm::vec3(0.2f, 1.0f, 0.0f);
-    physicsObjects[0].rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-    physicsObjects[0].velocity = glm::vec3(0.0f);
-    physicsObjects[0].angularVelocity = glm::vec3(0.0f);
-    physicsObjects[0].radius = 0.115f;
-    physicsObjects[0].mass = 0.45f;
-    physicsObjects[0].elasticity = 0.8f;
-    physicsObjects[0].momentOfInertia = (2.0f / 5.0f) * physicsObjects[0].mass * (physicsObjects[0].radius * physicsObjects[0].radius);
-
-    physicsObjects[1].position = glm::vec3(0.0f, 0.8f, 0.0f);
-    physicsObjects[1].rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-    physicsObjects[1].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
-    physicsObjects[1].angularVelocity = glm::vec3(0.0f);
-    physicsObjects[1].radius = 0.115f;
-    physicsObjects[1].mass = 0.45f;
-    physicsObjects[1].elasticity = 0.8f;
-    physicsObjects[1].momentOfInertia = (2.0f / 5.0f) * physicsObjects[1].mass * (physicsObjects[1].radius * physicsObjects[1].radius);
-
-    physicsObjects[2].position = glm::vec3(-0.2f, 1.0f, 0.0f);
-    physicsObjects[2].rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-    physicsObjects[2].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
-    physicsObjects[2].angularVelocity = glm::vec3(0.0f);
-    physicsObjects[2].radius = 0.115f;
-    physicsObjects[2].mass = 0.45f;
-    physicsObjects[2].elasticity = 0.8f;
-    physicsObjects[2].momentOfInertia = (2.0f / 5.0f) * physicsObjects[2].mass * (physicsObjects[2].radius * physicsObjects[2].radius);
 
     // Creating a staging buffer to upload data to the GPU
     vk::Buffer stagingBuffer;
@@ -1515,7 +1530,7 @@ void Application::createShaderStorageBuffers()
         throw std::runtime_error("Failed to map uniform buffer memory! Error Code: " + vk::to_string(result));
     }
 
-    memcpy(data, physicsObjects.data(), (size_t)bufferSize);
+    memcpy(data, objects.data(), (size_t)bufferSize);
     logicalDevice.unmapMemory(stagingBufferMemory);
 
     shaderStorageBuffers.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1587,8 +1602,8 @@ void Application::updateUniformBuffer(uint32_t currentImage)
 
     float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    glm::vec3 cameraPosition(0.0f, 0.5f, -1.0f);
-    glm::vec3 cameraLookPosition(0.0f, 0.0f, 0.0f);
+    glm::vec3 cameraPosition(0.0f, 5.0f, -5.0f);
+    glm::vec3 cameraLookPosition(0.0f, 2.5f, 0.0f);
     glm::vec3 cameraUp(0.0f, 1.0f, 0.0f);
 
     float fov = 90.0f;

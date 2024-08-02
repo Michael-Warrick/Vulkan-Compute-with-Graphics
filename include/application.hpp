@@ -52,66 +52,6 @@ private:
         std::vector<vk::PresentModeKHR> presentModes;
     };
 
-    // struct Vertex
-    // {
-    //     glm::vec3 position;
-    //     glm::vec3 color;
-    //     glm::vec2 textureCoordinates;
-
-    //     static vk::VertexInputBindingDescription getBindingDescription()
-    //     {
-    //         vk::VertexInputBindingDescription bindingDescription = vk::VertexInputBindingDescription()
-    //                                                                    .setBinding(0)
-    //                                                                    .setStride(sizeof(Vertex))
-    //                                                                    .setInputRate(vk::VertexInputRate::eVertex);
-
-    //         return bindingDescription;
-    //     }
-
-    //     static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions()
-    //     {
-    //         std::array<vk::VertexInputAttributeDescription, 3> attributeDescriptions{};
-
-    //         attributeDescriptions[0]
-    //             .setBinding(0)
-    //             .setLocation(0)
-    //             .setFormat(vk::Format::eR32G32B32Sfloat)
-    //             .setOffset(offsetof(Vertex, position));
-
-    //         attributeDescriptions[1]
-    //             .setBinding(0)
-    //             .setLocation(1)
-    //             .setFormat(vk::Format::eR32G32B32Sfloat)
-    //             .setOffset(offsetof(Vertex, color));
-
-    //         attributeDescriptions[2]
-    //             .setBinding(0)
-    //             .setLocation(2)
-    //             .setFormat(vk::Format::eR32G32Sfloat)
-    //             .setOffset(offsetof(Vertex, textureCoordinates));
-
-    //         return attributeDescriptions;
-    //     }
-
-    //     bool operator==(const Vertex &other) const
-    //     {
-    //         return position == other.position && color == other.color && textureCoordinates == other.textureCoordinates;
-    //     }
-
-    //     friend struct std::hash<Vertex>;
-    // };
-
-    // struct VertexHasher
-    // {
-    //     size_t operator()(Vertex const &vertex) const
-    //     {
-    //         return ((std::hash<glm::vec3>()(vertex.position) ^
-    //                  (std::hash<glm::vec3>()(vertex.color) << 1)) >>
-    //                 1) ^
-    //                (std::hash<glm::vec2>()(vertex.textureCoordinates) << 1);
-    //     }
-    // };
-
     struct UniformBufferObject
     {
         alignas(16) glm::mat4 model;
@@ -132,7 +72,7 @@ private:
         alignas(16) glm::vec3 angularVelocity;
         float radius;
         float mass;
-        float elasticity; // Coefficient of Restitution based on empirical measurements
+        float elasticity; // Coefficient of Restitution using empirical measurements
         float momentOfInertia;
 
         static vk::VertexInputBindingDescription getBindingDescription()
@@ -314,9 +254,11 @@ private:
     vk::SampleCountFlagBits getMaxUsableSampleCount();
     void createColorResources();
 
+    std::vector<PhysicsObject> createSphereBox(uint32_t boxSize, float sphereRadius);
+
     const int MAX_FRAMES_IN_FLIGHT = 2;
-    const int PHYSICS_OBJECT_COUNT = 3;
-    const int WORKGROUP_SIZE_X = 1;
+    int PHYSICS_OBJECT_COUNT = 0;
+    int WORKGROUP_SIZE_X = 256;
 
     GLFWwindow *window = nullptr;
     bool isVSyncEnabled = true;

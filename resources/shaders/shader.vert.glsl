@@ -74,6 +74,35 @@ mat4 rotate(mat4 model, float angleInRadians, vec3 axis) {
     return rotation * model;
 }
 
+mat4 quatToMat4(vec4 quat) {
+    float quatXX = quat.x * quat.x;
+    float quatYY = quat.y * quat.y;
+    float quatZZ = quat.z * quat.z;
+
+    float quatXZ = quat.x * quat.z;
+    float quatXY = quat.x * quat.y;
+    float quatYZ = quat.y * quat.z;
+
+    float quatWX = quat.w * quat.x;
+    float quatWY = quat.w * quat.y;
+    float quatWZ = quat.w * quat.z;
+
+    mat4 resultMatrix = mat4(1.0);
+    resultMatrix[0][0] = 1.0 - 2.0 * (quatYY + quatZZ);
+    resultMatrix[0][1] = 2.0 * (quatXY + quatWZ);
+    resultMatrix[0][2] = 2.0 * (quatXZ - quatWY);
+
+    resultMatrix[1][0] = 2.0 * (quatXY - quatWZ);
+    resultMatrix[1][1] = 1.0 - 2.0 * (quatXX + quatZZ);
+    resultMatrix[1][2] = 2.0 * (quatYZ + quatWX);
+
+    resultMatrix[2][0] = 2.0 * (quatXZ + quatWY);
+    resultMatrix[2][1] = 2.0 * (quatYZ - quatWX);
+    resultMatrix[2][2] = 1.0 - 2.0 * (quatXX + quatYY);
+
+    return resultMatrix;
+}
+
 mat4 scale(mat4 matrix, float scalingFactor) {
     mat4 scalingMatrix = mat4(
         scalingFactor, 0.0, 0.0, 0.0,
@@ -91,6 +120,9 @@ void main()
     
     mat4 transformedModel = scale(ubo.model, (physicsObjects[instanceIndex].radius * 2) / 0.23);
     transformedModel = translate(transformedModel, physicsObjects[instanceIndex].position);
+
+    mat4 rotationMatrix = quatToMat4(physicsObjects[instanceIndex].rotation);
+    transformedModel = transformedModel * rotationMatrix;
 
     gl_Position = ubo.projection * ubo.view * transformedModel * vec4(inPosition, 1.0);
 

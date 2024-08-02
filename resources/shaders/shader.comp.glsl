@@ -23,7 +23,7 @@ layout(std140, binding = 2) buffer PhysicsObjectSSBOOut {
    PhysicsObject objectsOut[];
 };
 
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 bool isCollidingSphereWithPlane(inout PhysicsObject sphere) {
     if ((sphere.position.y - sphere.radius) <= 0.0) {
