@@ -14,8 +14,18 @@ find_package(Vulkan REQUIRED)
 
 add_subdirectory(vendor/glfw)
 add_subdirectory(vendor/glm)
+set(IMGUI_DIR vendor/imgui)
 
 add_executable(${PROJECT_NAME}
+  #ImGui
+  ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+  ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
+  ${IMGUI_DIR}/imgui.cpp
+  ${IMGUI_DIR}/imgui_draw.cpp
+  ${IMGUI_DIR}/imgui_demo.cpp
+  ${IMGUI_DIR}/imgui_tables.cpp
+  ${IMGUI_DIR}/imgui_widgets.cpp
+
   # stb_image
   ${CMAKE_SOURCE_DIR}/include/stb_image/stb_image.h
   ${CMAKE_SOURCE_DIR}/include/stb_image/stb_image_imp.cpp
@@ -48,6 +58,8 @@ target_include_directories(${PROJECT_NAME}
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   glfw
   glm
+  ${IMGUI_DIR}
+  ${IMGUI_DIR}/backends
   Vulkan::Vulkan
 )
 

@@ -11,6 +11,7 @@ void Application::init()
 {
     initWindow();
     initVulkan();
+    initImGui();
 }
 
 void Application::initWindow()
@@ -84,6 +85,8 @@ void Application::shutdown()
         DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
     }
 
+    cleanupImGui();
+
     cleanupSwapChain();
 
     logicalDevice.destroyPipeline(graphicsPipeline);
@@ -103,6 +106,7 @@ void Application::shutdown()
         logicalDevice.freeMemory(computeUniformBuffersMemory[i]);
     }
 
+    logicalDevice.destroyDescriptorPool(imguiDescriptorPool);
     logicalDevice.destroyDescriptorPool(graphicsDescriptorPool);
     logicalDevice.destroyDescriptorPool(computeDescriptorPool);
 
@@ -629,6 +633,11 @@ vk::SurfaceFormatKHR Application::chooseSwapSurfaceFormat(const std::vector<vk::
 
 vk::PresentModeKHR Application::chooseSwapPresentMode(const std::vector<vk::PresentModeKHR> &availablePresentModes)
 {
+    if (isVSyncEnabled)
+    {
+        return vk::PresentModeKHR::eFifo;
+    }
+
     for (const auto &availablePresentMode : availablePresentModes)
     {
         if (availablePresentMode == vk::PresentModeKHR::eMailbox)
@@ -669,10 +678,6 @@ void Application::createSwapChain()
 
     vk::SurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
     vk::PresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-    if (isVSyncEnabled)
-    {
-        presentMode = vk::PresentModeKHR::eFifo;
-    }
 
     vk::Extent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
 
@@ -1164,6 +1169,8 @@ void Application::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t 
 
     footballModel.DrawInstanced(commandBuffer, PHYSICS_OBJECT_COUNT);
 
+    drawUI(commandBuffer);
+
     commandBuffer.endRenderPass();
     commandBuffer.end();
 }
@@ -1513,8 +1520,6 @@ void Application::createShaderStorageBuffers()
     std::vector<PhysicsObject> objects = createSphereBox(16, 0.115f);
     PHYSICS_OBJECT_COUNT = objects.size();
 
-    std::cout << "Physics Object Count: " << PHYSICS_OBJECT_COUNT << std::endl;
-
     vk::DeviceSize bufferSize = sizeof(PhysicsObject) * PHYSICS_OBJECT_COUNT;
 
     // Creating a staging buffer to upload data to the GPU
@@ -1611,11 +1616,8 @@ void Application::updateUniformBuffer(uint32_t currentImage)
     float nearPlane = 0.1f;
     float farPlane = 100.0f;
 
-    glm::vec3 footballPosition(0.0f, 0.0f, 0.0f);
-
     UniformBufferObject ubo;
-    ubo.model = glm::translate(glm::mat4(1.0f), footballPosition);
-    // ubo.model = glm::rotate(ubo.model, (deltaTime * 0.4f) * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    ubo.model = glm::mat4(1.0f);
     ubo.view = glm::lookAt(cameraPosition, cameraLookPosition, cameraUp);
     ubo.projection = glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
 
@@ -1631,9 +1633,10 @@ void Application::updateComputeUniformBuffer(uint32_t currentImage)
     auto currentTime = std::chrono::high_resolution_clock::now();
 
     float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+    startTime = currentTime;
 
     ComputeUniformBufferObject computeUBO;
-    computeUBO.physicsTimeStep = 1.0f / 60.0f;
+    computeUBO.physicsTimeStep = deltaTime;
 
     memcpy(computeUniformBuffersMapped[currentImage], &computeUBO, sizeof(computeUBO));
 }
@@ -2295,4 +2298,117 @@ void Application::recordComputeCommandBuffer(vk::CommandBuffer commandBuffer)
     commandBuffer.dispatch(PHYSICS_OBJECT_COUNT / WORKGROUP_SIZE_X, 1, 1);
 
     commandBuffer.end();
+}
+
+void Application::initImGui()
+{
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+    ImGui::GetIO().Fonts->AddFontFromFileTTF("../resources/fonts/RobotoMono/RobotoMono-Regular.ttf", 20.0f);
+
+    ImGui_ImplGlfw_InitForVulkan(window, true);
+
+    QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+    createImGuiDescriptorPool();
+
+    ImGui_ImplVulkan_InitInfo imguiInitInfo = {};
+    imguiInitInfo.Instance = instance;
+    imguiInitInfo.PhysicalDevice = physicalDevice;
+    imguiInitInfo.Device = logicalDevice;
+    imguiInitInfo.QueueFamily = indices.graphicsAndComputeFamily.value();
+    imguiInitInfo.Queue = graphicsQueue;
+    imguiInitInfo.PipelineCache = nullptr;
+    imguiInitInfo.DescriptorPool = imguiDescriptorPool;
+    imguiInitInfo.RenderPass = renderPass;
+    imguiInitInfo.Subpass = 0;
+    imguiInitInfo.MinImageCount = MAX_FRAMES_IN_FLIGHT;
+    imguiInitInfo.ImageCount = MAX_FRAMES_IN_FLIGHT;
+    imguiInitInfo.MSAASamples = (VkSampleCountFlagBits)msaaSamples;
+    imguiInitInfo.Allocator = nullptr;
+    imguiInitInfo.CheckVkResultFn = nullptr;
+
+    ImGui_ImplVulkan_Init(&imguiInitInfo);
+}
+
+void Application::createImGuiDescriptorPool()
+{
+    std::array<vk::DescriptorPoolSize, 11> pool_sizes = {
+        vk::DescriptorPoolSize{vk::DescriptorType::eSampler, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eCombinedImageSampler, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eSampledImage, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eStorageImage, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eUniformTexelBuffer, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eStorageTexelBuffer, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eUniformBuffer, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eStorageBuffer, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eUniformBufferDynamic, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eStorageBufferDynamic, 1000},
+        vk::DescriptorPoolSize{vk::DescriptorType::eInputAttachment, 1000}};
+
+    vk::DescriptorPoolCreateInfo descriptorPoolCreateInfo = vk::DescriptorPoolCreateInfo()
+                                                                .setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet)
+                                                                .setMaxSets(1000 * static_cast<uint32_t>(pool_sizes.size()))
+                                                                .setPoolSizeCount(static_cast<uint32_t>(pool_sizes.size()))
+                                                                .setPPoolSizes(pool_sizes.data());
+
+    imguiDescriptorPool = logicalDevice.createDescriptorPool(descriptorPoolCreateInfo);
+}
+
+void Application::drawOverlay()
+{
+    bool showWindow = true;
+    static int location = 0;
+    ImGuiIO &io = ImGui::GetIO();
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration |
+                                    ImGuiWindowFlags_NoDocking | 
+                                    ImGuiWindowFlags_AlwaysAutoResize | 
+                                    ImGuiWindowFlags_NoSavedSettings | 
+                                    ImGuiWindowFlags_NoFocusOnAppearing | 
+                                    ImGuiWindowFlags_NoNav;
+    const float PAD = 10.0f;
+    const ImGuiViewport *viewport = ImGui::GetMainViewport();
+
+    ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
+    ImVec2 work_size = viewport->WorkSize;
+    ImVec2 window_pos, window_pos_pivot;
+
+    window_pos.x = (location & 1) ? (work_pos.x + work_size.x - PAD) : (work_pos.x + PAD);
+    window_pos.y = (location & 2) ? (work_pos.y + work_size.y - PAD) : (work_pos.y + PAD);
+    window_pos_pivot.x = (location & 1) ? 1.0f : 0.0f;
+    window_pos_pivot.y = (location & 2) ? 1.0f : 0.0f;
+
+    ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+    ImGui::SetNextWindowViewport(viewport->ID);
+    window_flags |= ImGuiWindowFlags_NoMove;
+    ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
+
+    if (ImGui::Begin("Example: Simple overlay", &showWindow, window_flags))
+    {
+        ImGui::Text("Scene");
+        ImGui::Separator();
+        ImGui::Text("Number of Physics Objects: %d", PHYSICS_OBJECT_COUNT);
+        ImGui::Text("Application: %.3f ms", 1000.0f / io.Framerate);
+        ImGui::Text("Framerate: %.1f FPS", io.Framerate);
+    }
+    ImGui::End();
+}
+
+void Application::drawUI(vk::CommandBuffer commandBuffer)
+{
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    drawOverlay();
+
+    ImGui::Render();
+
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer, nullptr);
+}
+
+void Application::cleanupImGui()
+{
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 }

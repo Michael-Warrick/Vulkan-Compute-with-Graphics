@@ -26,6 +26,10 @@
 #include "stb_image/stb_image.h"
 #include "tiny_obj_loader/tiny_obj_loader.h"
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
+
 #include "model.hpp"
 
 class Application
@@ -147,6 +151,12 @@ private:
 
     void initWindow();
     void initVulkan();
+    void initImGui();
+
+    void createImGuiDescriptorPool();
+    void drawOverlay();
+    void drawUI(vk::CommandBuffer commandBuffer);
+    void cleanupImGui();
 
     void createVulkanInstance();
 
@@ -208,6 +218,7 @@ private:
     void cleanupSwapChain();
 
     static void framebufferResizeCallback(GLFWwindow *window, int width, int height);
+    static void windowPositionCallback(GLFWwindow *window, int positionX, int positionY);
 
     void createVertexBuffer();
     void createIndexBuffer();
@@ -261,7 +272,11 @@ private:
     int WORKGROUP_SIZE_X = 256;
 
     GLFWwindow *window = nullptr;
-    bool isVSyncEnabled = true;
+    GLFWmonitor *monitor = nullptr;
+    int monitorResolutionX;
+    int monitorResolutionY;
+
+    bool isVSyncEnabled = false;
 
     vk::Instance instance;
     vk::InstanceCreateFlags flags;
@@ -345,13 +360,6 @@ private:
 
     bool framebufferResized = false;
 
-    // std::vector<Vertex> vertices;
-    // std::vector<uint32_t> indices;
-    // vk::Buffer vertexBuffer;
-    // vk::DeviceMemory vertexBufferMemory;
-    // vk::Buffer indexBuffer;
-    // vk::DeviceMemory indexBufferMemory;
-
     std::vector<vk::Buffer> uniformBuffers;
     std::vector<vk::DeviceMemory> uniformBuffersMemory;
     std::vector<void *> uniformBuffersMapped;
@@ -390,4 +398,6 @@ private:
     Model groundModel;
 
     vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
+
+    vk::DescriptorPool imguiDescriptorPool;
 };
