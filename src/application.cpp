@@ -2384,7 +2384,7 @@ void Application::drawOverlay()
 
     if (ImGui::Begin("Example: Simple overlay", &showWindow, window_flags))
     {
-        ImGui::Text("Scene");
+        ImGui::Text("Profiler");
         ImGui::Separator();
         ImGui::Text("Number of Physics Objects: %d", PHYSICS_OBJECT_COUNT);
         ImGui::Text("Application: %.3f ms", 1000.0f / io.Framerate);
