@@ -19,7 +19,7 @@ void Application::initWindow()
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    window = glfwCreateWindow(2560, 1440, "Vulkan Compute with Graphics", nullptr, nullptr);
+    window = glfwCreateWindow(1920, 1080, "Vulkan Compute with Graphics", nullptr, nullptr);
     glfwSetWindowUserPointer(window, this);
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 }
@@ -31,6 +31,7 @@ void Application::initVulkan()
     createSurface();
     pickPhysicalDevice();
     createLogicalDevice();
+    createQueryPool();
     createSwapChain();
     createImageViews();
     createRenderPass();
@@ -88,6 +89,8 @@ void Application::shutdown()
     cleanupImGui();
 
     cleanupSwapChain();
+
+    logicalDevice.destroyQueryPool(queryPool);
 
     logicalDevice.destroyPipeline(graphicsPipeline);
     logicalDevice.destroyPipelineLayout(graphicsPipelineLayout);
@@ -1136,6 +1139,8 @@ void Application::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t 
         throw std::runtime_error("Failed to allocate command buffers! Error Code: " + vk::to_string(result));
     }
 
+    // commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eAllGraphics, queryPool, 2);
+
     std::array<vk::ClearValue, 2> clearValues{};
     clearValues[0].color = vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
     clearValues[1].depthStencil = vk::ClearDepthStencilValue{1.0f, 0};
@@ -1177,6 +1182,8 @@ void Application::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t 
 
 void Application::drawFrame()
 {
+    // logicalDevice.resetQueryPool(queryPool, 0, timeStamps.size());
+
     // Compute submission
     vk::Result result = logicalDevice.waitForFences(1, &computeInFlightFences[currentFrame], vk::True, UINT64_MAX);
     if (result != vk::Result::eSuccess)
@@ -1193,7 +1200,13 @@ void Application::drawFrame()
     }
 
     computeCommandBuffers[currentFrame].reset();
+
+    auto startComputeTimer = std::chrono::high_resolution_clock::now();
     recordComputeCommandBuffer(computeCommandBuffers[currentFrame]);
+
+    
+
+    // computeCommandBuffers[currentFrame].writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, queryPool, 0);
 
     vk::SubmitInfo submitInfo = vk::SubmitInfo()
                                     .setCommandBufferCount(1)
@@ -1206,6 +1219,11 @@ void Application::drawFrame()
     {
         throw std::runtime_error("Failed to submit compute command buffer! Error Code: " + vk::to_string(result));
     }
+
+    auto endComputeTimer = std::chrono::high_resolution_clock::now();
+    computePipelineTimeMS = std::chrono::duration<float, std::milli>(endComputeTimer - startComputeTimer).count() * 10.0f;
+
+    // computeCommandBuffers[currentFrame].writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, queryPool, 1);
 
     // Graphics submission
     result = logicalDevice.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
@@ -1236,7 +1254,11 @@ void Application::drawFrame()
     }
 
     commandBuffers[currentFrame].reset();
+    auto startGraphicsTimer = std::chrono::high_resolution_clock::now();
     recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
+
+    
+    // commandBuffers[currentFrame].writeTimestamp(vk::PipelineStageFlagBits::eAllGraphics, queryPool, 2);
 
     vk::Semaphore waitSemaphores[] = {computeFinishedSemaphores[currentFrame], imageAvailableSemaphores[currentFrame]};
     vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eVertexInput, vk::PipelineStageFlagBits::eColorAttachmentOutput};
@@ -1258,6 +1280,10 @@ void Application::drawFrame()
         throw std::runtime_error("Failed to submit draw command buffer! Error Code: " + vk::to_string(result));
     }
 
+    auto endGraphicsTimer = std::chrono::high_resolution_clock::now();
+    graphicsPipelineTimeMS = std::chrono::duration<float, std::milli>(endGraphicsTimer - startGraphicsTimer).count() * 10.0f;
+    // commandBuffers[currentFrame].writeTimestamp(vk::PipelineStageFlagBits::eAllGraphics, queryPool, 3);
+
     vk::SwapchainKHR swapChains[] = {swapChain};
 
     vk::PresentInfoKHR presentInfo = vk::PresentInfoKHR()
@@ -1278,6 +1304,14 @@ void Application::drawFrame()
     {
         throw std::runtime_error("Failed to present: present queue! Error Code: " + vk::to_string(result));
     }
+
+    // logicalDevice.getQueryPoolResults(queryPool, 0, timeStamps.size(), sizeof(uint64_t) * timeStamps.size(), timeStamps.data(), sizeof(uint64_t), vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait);
+
+    // float computePipelineTimeNS = (timeStamps[1] - timeStamps[0]) * physicalDevice.getProperties().limits.timestampPeriod;
+    // computePipelineTimeMS = computePipelineTimeNS / 1e6;
+
+    // float graphicsPipelineTimeNS = (timeStamps[3] - timeStamps[2]) * physicalDevice.getProperties().limits.timestampPeriod;
+    // graphicsPipelineTimeMS = computePipelineTimeNS / 1e6;
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
@@ -1476,37 +1510,38 @@ void Application::createGraphicsDescriptorSetLayout()
     }
 }
 
-std::vector<Application::PhysicsObject> Application::createSphereBox(uint32_t boxSize, float sphereRadius)
-{
-    std::vector<PhysicsObject> physicsObjects(boxSize * boxSize * boxSize);
+std::vector<Application::PhysicsObject> Application::createSphereBox(uint32_t objectCount, float sphereRadius) {
+    // Calculate the size of the box to fit all spheres in a cube
+    uint32_t boxSize = std::ceil(std::cbrt(objectCount));
+    std::vector<PhysicsObject> physicsObjects(objectCount);
 
     // Calculate box dimensions based on sphere radius and count
     float boxWidth = (boxSize - 1) * sphereRadius * 2.0f;
     float boxHeight = (boxSize - 1) * sphereRadius * 2.0f;
     float boxDepth = (boxSize - 1) * sphereRadius * 2.0f;
 
-    // Iterate through the grid
+    // Iterate through the grid and create physics objects
     int index = 0;
-    for (int x = 0; x < boxSize; ++x)
-    {
-        for (int y = 0; y < boxSize; ++y)
-        {
-            for (int z = 0; z < boxSize; ++z)
-            {
+    for (uint32_t x = 0; x < boxSize && index < objectCount; ++x) {
+        for (uint32_t y = 0; y < boxSize && index < objectCount; ++y) {
+            for (uint32_t z = 0; z < boxSize && index < objectCount; ++z) {
                 // Calculate sphere position
                 float xPos = -boxWidth / 2.0f + x * sphereRadius * 2.0f + sphereRadius;
                 float yPos = -boxHeight / 2.0f + y * sphereRadius * 2.0f + sphereRadius;
                 float zPos = -boxDepth / 2.0f + z * sphereRadius * 2.0f + sphereRadius;
 
-                physicsObjects[index].position = glm::vec3(xPos, yPos + 2.0f, zPos);
-                physicsObjects[index].rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-                physicsObjects[index].velocity = glm::vec3(0.0f);
-                physicsObjects[index].angularVelocity = glm::vec3(0.0f);
-                physicsObjects[index].radius = 0.115f;
-                physicsObjects[index].mass = 0.45f;
-                physicsObjects[index].elasticity = 0.8f;
-                physicsObjects[index].momentOfInertia = (2.0f / 5.0f) * physicsObjects[index].mass * (physicsObjects[index].radius * physicsObjects[index].radius);
+                // Initialize physics object
+                PhysicsObject obj;
+                obj.position = glm::vec3(xPos, yPos + 2.0f, zPos);
+                obj.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+                obj.velocity = glm::vec3(0.0f);
+                obj.angularVelocity = glm::vec3(0.0f);
+                obj.radius = sphereRadius;
+                obj.mass = 0.45f;
+                obj.elasticity = 0.8f;
+                obj.momentOfInertia = (2.0f / 5.0f) * obj.mass * (obj.radius * obj.radius);
 
+                physicsObjects[index] = obj;
                 index++;
             }
         }
@@ -1517,8 +1552,7 @@ std::vector<Application::PhysicsObject> Application::createSphereBox(uint32_t bo
 
 void Application::createShaderStorageBuffers()
 {
-    std::vector<PhysicsObject> objects = createSphereBox(16, 0.115f);
-    PHYSICS_OBJECT_COUNT = objects.size();
+    std::vector<PhysicsObject> objects = createSphereBox(PHYSICS_OBJECT_COUNT, 0.115f);
 
     vk::DeviceSize bufferSize = sizeof(PhysicsObject) * PHYSICS_OBJECT_COUNT;
 
@@ -2293,9 +2327,13 @@ void Application::recordComputeCommandBuffer(vk::CommandBuffer commandBuffer)
         throw std::runtime_error("Failed to begin recording compute command buffer! Error Code: " + vk::to_string(result));
     }
 
+    // commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, queryPool, 0);
+
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, computePipeline);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, computePipelineLayout, 0, 1, &computeDescriptorSets[currentFrame], 0, nullptr);
     commandBuffer.dispatch(PHYSICS_OBJECT_COUNT / WORKGROUP_SIZE_X, 1, 1);
+
+    // commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, queryPool, 1);
 
     commandBuffer.end();
 }
@@ -2360,10 +2398,10 @@ void Application::drawOverlay()
     static int location = 0;
     ImGuiIO &io = ImGui::GetIO();
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration |
-                                    ImGuiWindowFlags_NoDocking | 
-                                    ImGuiWindowFlags_AlwaysAutoResize | 
-                                    ImGuiWindowFlags_NoSavedSettings | 
-                                    ImGuiWindowFlags_NoFocusOnAppearing | 
+                                    ImGuiWindowFlags_NoDocking |
+                                    ImGuiWindowFlags_AlwaysAutoResize |
+                                    ImGuiWindowFlags_NoSavedSettings |
+                                    ImGuiWindowFlags_NoFocusOnAppearing |
                                     ImGuiWindowFlags_NoNav;
     const float PAD = 10.0f;
     const ImGuiViewport *viewport = ImGui::GetMainViewport();
@@ -2387,8 +2425,12 @@ void Application::drawOverlay()
         ImGui::Text("Profiler");
         ImGui::Separator();
         ImGui::Text("Number of Physics Objects: %d", PHYSICS_OBJECT_COUNT);
-        ImGui::Text("Application: %.3f ms", 1000.0f / io.Framerate);
-        ImGui::Text("Framerate: %.1f FPS", io.Framerate);
+        ImGui::Separator();
+        ImGui::Text("Compute:                   %.3f ms", computePipelineTimeMS);
+        ImGui::Text("Graphics:                  %.3f ms", graphicsPipelineTimeMS);
+        ImGui::Text("Application:               %.3f ms", 1000.0f / io.Framerate);
+        ImGui::Separator();
+        ImGui::Text("Framerate:                 %.1f FPS", io.Framerate);
     }
     ImGui::End();
 }
@@ -2411,4 +2453,35 @@ void Application::cleanupImGui()
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+}
+
+void Application::createQueryPool()
+{
+    vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
+    QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+
+    if (properties.limits.timestampPeriod == 0)
+    {
+        throw std::runtime_error("Timestamp queries are not supported for this device!");
+    }
+
+    if (!properties.limits.timestampComputeAndGraphics)
+    {
+        // Check if the graphics queue used in this sample supports time stamps
+        auto queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
+        if (queueFamilyProperties[indices.graphicsAndComputeFamily.value()].timestampValidBits == 0)
+        {
+            throw std::runtime_error{"The selected graphics queue family does not support timestamp queries!"};
+        }
+    }
+
+    vk::QueryPoolCreateInfo queryPoolCreateInfo = vk::QueryPoolCreateInfo()
+                                                      .setQueryType(vk::QueryType::eTimestamp)
+                                                      .setQueryCount(4); // Beginning + End of both Compute and Graphics Pipelines
+
+    vk::Result result = logicalDevice.createQueryPool(&queryPoolCreateInfo, nullptr, &queryPool);
+    if (result != vk::Result::eSuccess)
+    {
+        throw std::runtime_error("Failed to create query pool. Error code: " + vk::to_string(result));
+    }
 }

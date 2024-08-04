@@ -59,6 +59,17 @@ void resolveCollisionSphereWithSphere(inout PhysicsObject sphereOne, inout Physi
     vec3 normalDirection = sphereOne.position - sphereTwo.position;
     vec3 normalizedNormalDirection = normalize(normalDirection);
 
+    float separationDistance = length(normalDirection);
+    float overlap = (sphereOne.radius + sphereTwo.radius) - separationDistance;
+
+    // Separate spheres to avoid overlap with a positional correction factor
+    const float percent = 0.2; // Positional correction factor (20%)
+    const float slop = 0.01;   // Allowable penetration
+    vec3 correction = max(overlap - slop, 0.0) / (1.0 / sphereOne.mass + 1.0 / sphereTwo.mass) * percent * normalizedNormalDirection;
+
+    sphereOne.position += correction * (1.0 / sphereOne.mass);
+    sphereTwo.position -= correction * (1.0 / sphereTwo.mass);
+
     // Calculate relative velocity
     vec3 relativeVelocity = sphereOne.velocity - sphereTwo.velocity;
 
@@ -91,9 +102,12 @@ void main() {
 
     objectsOut[index].velocity = objectIn.velocity + gravity * ubo.physicsTimeStep;
     objectsOut[index].position = objectIn.position + objectsOut[index].velocity * ubo.physicsTimeStep;
+    objectsOut[index].rotation = objectIn.rotation;
+    objectsOut[index].angularVelocity = objectIn.angularVelocity;
     objectsOut[index].radius = objectIn.radius;
     objectsOut[index].mass = objectIn.mass;
     objectsOut[index].elasticity = objectIn.elasticity;
+    objectsOut[index].momentOfInertia = objectIn.momentOfInertia;
 
     if (isCollidingSphereWithPlane(objectsOut[index])) {
         resolveCollisionSphereWithPlane(objectsOut[index]);

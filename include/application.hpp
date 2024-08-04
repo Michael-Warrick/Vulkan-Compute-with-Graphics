@@ -265,11 +265,13 @@ private:
     vk::SampleCountFlagBits getMaxUsableSampleCount();
     void createColorResources();
 
-    std::vector<PhysicsObject> createSphereBox(uint32_t boxSize, float sphereRadius);
+    std::vector<PhysicsObject> createSphereBox(uint32_t objectCount, float sphereRadius);
+
+    void createQueryPool();
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
-    int PHYSICS_OBJECT_COUNT = 0;
-    int WORKGROUP_SIZE_X = 256;
+    const int PHYSICS_OBJECT_COUNT = 1'024;
+    const int WORKGROUP_SIZE_X = (PHYSICS_OBJECT_COUNT <= 256) ? PHYSICS_OBJECT_COUNT : 256;
 
     GLFWwindow *window = nullptr;
     GLFWmonitor *monitor = nullptr;
@@ -315,7 +317,7 @@ private:
 #ifdef __APPLE__
     const std::vector<const char *> logicalDeviceExtensions = {"VK_KHR_portability_subset", "VK_KHR_swapchain"};
 #else
-    const std::vector<const char *> logicalDeviceExtensions = {"VK_KHR_swapchain"};
+    const std::vector<const char *> logicalDeviceExtensions = {"VK_KHR_swapchain", "VK_EXT_host_query_reset"};
 #endif
 
     vk::SurfaceKHR surface;
@@ -400,4 +402,11 @@ private:
     vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
 
     vk::DescriptorPool imguiDescriptorPool;
+
+    vk::QueryPool queryPool;
+    std::vector<uint64_t> timeStamps;
+    
+    float computePipelineTimeMS = 0.0f;
+    float graphicsPipelineTimeMS = 0.0f;
+    float totalApplicationTimeMS = 0.0f;
 };
