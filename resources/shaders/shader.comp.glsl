@@ -23,7 +23,7 @@ layout(std140, binding = 2) buffer PhysicsObjectSSBOOut {
    PhysicsObject objectsOut[];
 };
 
-layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
 
 bool isCollidingSphereWithPlane(inout PhysicsObject sphere) {
     if ((sphere.position.y - sphere.radius) <= 0.0) {
@@ -64,7 +64,7 @@ void resolveCollisionSphereWithSphere(inout PhysicsObject sphereOne, inout Physi
 
     // Separate spheres to avoid overlap with a positional correction factor
     const float percent = 0.2; // Positional correction factor (20%)
-    const float slop = 0.01;   // Allowable penetration
+    const float slop = 0.00001;   // Allowable penetration
     vec3 correction = max(overlap - slop, 0.0) / (1.0 / sphereOne.mass + 1.0 / sphereTwo.mass) * percent * normalizedNormalDirection;
 
     sphereOne.position += correction * (1.0 / sphereOne.mass);

@@ -31,7 +31,7 @@ void Application::initVulkan()
     createSurface();
     pickPhysicalDevice();
     createLogicalDevice();
-    createQueryPool();
+    createTimeStampQueryPool();
     createSwapChain();
     createImageViews();
     createRenderPass();
@@ -583,12 +583,17 @@ void Application::createLogicalDevice()
     physicalDeviceFeatures.samplerAnisotropy = vk::True;
     physicalDeviceFeatures.sampleRateShading = vk::True;
 
+    vk::PhysicalDeviceHostQueryResetFeatures hostQueryResetFeatures = vk::PhysicalDeviceHostQueryResetFeatures()
+                                                                          .setPNext(nullptr)
+                                                                          .setHostQueryReset(vk::True);
+
     logicalDeviceCreateInfo = vk::DeviceCreateInfo()
                                   .setPQueueCreateInfos(queueFamilyCreateInfos.data())
                                   .setQueueCreateInfoCount(queueFamilyCreateInfos.size())
                                   .setPEnabledFeatures(&physicalDeviceFeatures)
                                   .setEnabledExtensionCount(logicalDeviceExtensions.size())
-                                  .setPpEnabledExtensionNames(logicalDeviceExtensions.data());
+                                  .setPpEnabledExtensionNames(logicalDeviceExtensions.data())
+                                  .setPNext(&hostQueryResetFeatures);
 
     if (enableValidationLayers)
     {
@@ -1139,7 +1144,7 @@ void Application::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t 
         throw std::runtime_error("Failed to allocate command buffers! Error Code: " + vk::to_string(result));
     }
 
-    // commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eAllGraphics, queryPool, 2);
+    commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eTopOfPipe, queryPool, 2);
 
     std::array<vk::ClearValue, 2> clearValues{};
     clearValues[0].color = vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
@@ -1177,13 +1182,13 @@ void Application::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t 
     drawUI(commandBuffer);
 
     commandBuffer.endRenderPass();
+
+    commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, queryPool, 3);
     commandBuffer.end();
 }
 
 void Application::drawFrame()
 {
-    // logicalDevice.resetQueryPool(queryPool, 0, timeStamps.size());
-
     // Compute submission
     vk::Result result = logicalDevice.waitForFences(1, &computeInFlightFences[currentFrame], vk::True, UINT64_MAX);
     if (result != vk::Result::eSuccess)
@@ -1200,13 +1205,7 @@ void Application::drawFrame()
     }
 
     computeCommandBuffers[currentFrame].reset();
-
-    auto startComputeTimer = std::chrono::high_resolution_clock::now();
     recordComputeCommandBuffer(computeCommandBuffers[currentFrame]);
-
-    
-
-    // computeCommandBuffers[currentFrame].writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, queryPool, 0);
 
     vk::SubmitInfo submitInfo = vk::SubmitInfo()
                                     .setCommandBufferCount(1)
@@ -1219,11 +1218,6 @@ void Application::drawFrame()
     {
         throw std::runtime_error("Failed to submit compute command buffer! Error Code: " + vk::to_string(result));
     }
-
-    auto endComputeTimer = std::chrono::high_resolution_clock::now();
-    computePipelineTimeMS = std::chrono::duration<float, std::milli>(endComputeTimer - startComputeTimer).count() * 10.0f;
-
-    // computeCommandBuffers[currentFrame].writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, queryPool, 1);
 
     // Graphics submission
     result = logicalDevice.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
@@ -1254,11 +1248,7 @@ void Application::drawFrame()
     }
 
     commandBuffers[currentFrame].reset();
-    auto startGraphicsTimer = std::chrono::high_resolution_clock::now();
     recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
-
-    
-    // commandBuffers[currentFrame].writeTimestamp(vk::PipelineStageFlagBits::eAllGraphics, queryPool, 2);
 
     vk::Semaphore waitSemaphores[] = {computeFinishedSemaphores[currentFrame], imageAvailableSemaphores[currentFrame]};
     vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eVertexInput, vk::PipelineStageFlagBits::eColorAttachmentOutput};
@@ -1279,10 +1269,6 @@ void Application::drawFrame()
     {
         throw std::runtime_error("Failed to submit draw command buffer! Error Code: " + vk::to_string(result));
     }
-
-    auto endGraphicsTimer = std::chrono::high_resolution_clock::now();
-    graphicsPipelineTimeMS = std::chrono::duration<float, std::milli>(endGraphicsTimer - startGraphicsTimer).count() * 10.0f;
-    // commandBuffers[currentFrame].writeTimestamp(vk::PipelineStageFlagBits::eAllGraphics, queryPool, 3);
 
     vk::SwapchainKHR swapChains[] = {swapChain};
 
@@ -1305,13 +1291,7 @@ void Application::drawFrame()
         throw std::runtime_error("Failed to present: present queue! Error Code: " + vk::to_string(result));
     }
 
-    // logicalDevice.getQueryPoolResults(queryPool, 0, timeStamps.size(), sizeof(uint64_t) * timeStamps.size(), timeStamps.data(), sizeof(uint64_t), vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait);
-
-    // float computePipelineTimeNS = (timeStamps[1] - timeStamps[0]) * physicalDevice.getProperties().limits.timestampPeriod;
-    // computePipelineTimeMS = computePipelineTimeNS / 1e6;
-
-    // float graphicsPipelineTimeNS = (timeStamps[3] - timeStamps[2]) * physicalDevice.getProperties().limits.timestampPeriod;
-    // graphicsPipelineTimeMS = computePipelineTimeNS / 1e6;
+    getTimeStampResults();
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
@@ -1510,7 +1490,8 @@ void Application::createGraphicsDescriptorSetLayout()
     }
 }
 
-std::vector<Application::PhysicsObject> Application::createSphereBox(uint32_t objectCount, float sphereRadius) {
+std::vector<Application::PhysicsObject> Application::createSphereBox(uint32_t objectCount, float sphereRadius)
+{
     // Calculate the size of the box to fit all spheres in a cube
     uint32_t boxSize = std::ceil(std::cbrt(objectCount));
     std::vector<PhysicsObject> physicsObjects(objectCount);
@@ -1522,9 +1503,12 @@ std::vector<Application::PhysicsObject> Application::createSphereBox(uint32_t ob
 
     // Iterate through the grid and create physics objects
     int index = 0;
-    for (uint32_t x = 0; x < boxSize && index < objectCount; ++x) {
-        for (uint32_t y = 0; y < boxSize && index < objectCount; ++y) {
-            for (uint32_t z = 0; z < boxSize && index < objectCount; ++z) {
+    for (uint32_t x = 0; x < boxSize && index < objectCount; ++x)
+    {
+        for (uint32_t y = 0; y < boxSize && index < objectCount; ++y)
+        {
+            for (uint32_t z = 0; z < boxSize && index < objectCount; ++z)
+            {
                 // Calculate sphere position
                 float xPos = -boxWidth / 2.0f + x * sphereRadius * 2.0f + sphereRadius;
                 float yPos = -boxHeight / 2.0f + y * sphereRadius * 2.0f + sphereRadius;
@@ -2326,16 +2310,30 @@ void Application::recordComputeCommandBuffer(vk::CommandBuffer commandBuffer)
     {
         throw std::runtime_error("Failed to begin recording compute command buffer! Error Code: " + vk::to_string(result));
     }
-
-    // commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, queryPool, 0);
+    logicalDevice.resetQueryPool(queryPool, 0, static_cast<uint32_t>(timeStamps.size()));
+    commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eTopOfPipe, queryPool, 0);
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, computePipeline);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, computePipelineLayout, 0, 1, &computeDescriptorSets[currentFrame], 0, nullptr);
     commandBuffer.dispatch(PHYSICS_OBJECT_COUNT / WORKGROUP_SIZE_X, 1, 1);
 
-    // commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, queryPool, 1);
+    commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, queryPool, 1);
 
     commandBuffer.end();
+}
+
+std::string Application::formatIntStringWithCommas(int number)
+{
+    std::string numberString = std::to_string(number);
+    int commaLocation = numberString.length() - 3;
+
+    while (commaLocation > 0)
+    {
+        numberString.insert(commaLocation, ",");
+        commaLocation -= 3;
+    }
+
+    return numberString;
 }
 
 void Application::initImGui()
@@ -2366,6 +2364,8 @@ void Application::initImGui()
     imguiInitInfo.CheckVkResultFn = nullptr;
 
     ImGui_ImplVulkan_Init(&imguiInitInfo);
+
+    objectString = "Number of Physics Objects: " + formatIntStringWithCommas(PHYSICS_OBJECT_COUNT);
 }
 
 void Application::createImGuiDescriptorPool()
@@ -2422,9 +2422,9 @@ void Application::drawOverlay()
 
     if (ImGui::Begin("Example: Simple overlay", &showWindow, window_flags))
     {
-        ImGui::Text("Profiler");
+        ImGui::Text("PROFILER");
         ImGui::Separator();
-        ImGui::Text("Number of Physics Objects: %d", PHYSICS_OBJECT_COUNT);
+        ImGui::Text(objectString.c_str());
         ImGui::Separator();
         ImGui::Text("Compute:                   %.3f ms", computePipelineTimeMS);
         ImGui::Text("Graphics:                  %.3f ms", graphicsPipelineTimeMS);
@@ -2455,7 +2455,7 @@ void Application::cleanupImGui()
     ImGui::DestroyContext();
 }
 
-void Application::createQueryPool()
+void Application::createTimeStampQueryPool()
 {
     vk::PhysicalDeviceProperties properties = physicalDevice.getProperties();
     QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
@@ -2475,13 +2475,31 @@ void Application::createQueryPool()
         }
     }
 
+    timeStamps.resize(4);
+
     vk::QueryPoolCreateInfo queryPoolCreateInfo = vk::QueryPoolCreateInfo()
                                                       .setQueryType(vk::QueryType::eTimestamp)
-                                                      .setQueryCount(4); // Beginning + End of both Compute and Graphics Pipelines
+                                                      .setQueryCount(static_cast<uint32_t>(timeStamps.size()));
 
     vk::Result result = logicalDevice.createQueryPool(&queryPoolCreateInfo, nullptr, &queryPool);
     if (result != vk::Result::eSuccess)
     {
         throw std::runtime_error("Failed to create query pool. Error code: " + vk::to_string(result));
     }
+}
+
+void Application::getTimeStampResults()
+{
+    vk::Result result = logicalDevice.getQueryPoolResults(
+        queryPool,
+        0,
+        static_cast<uint32_t>(timeStamps.size()),
+        timeStamps.size() * sizeof(uint64_t),
+        timeStamps.data(),
+        sizeof(uint64_t),
+        vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait);
+
+    vk::PhysicalDeviceLimits const &physicalDeviceLimits = physicalDevice.getProperties().limits;
+    computePipelineTimeMS = float(timeStamps[1] - timeStamps[0]) * physicalDeviceLimits.timestampPeriod / 1'000'000.0f;
+    graphicsPipelineTimeMS = float(timeStamps[3] - timeStamps[2]) * physicalDeviceLimits.timestampPeriod / 1'000'000.0f;
 }

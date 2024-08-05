@@ -258,8 +258,6 @@ private:
     vk::Format findDepthFormat();
     bool hasStencilComponent(vk::Format format);
 
-    void loadModel(const char *modelPath);
-
     void generateMipmaps(vk::Image image, vk::Format imageFormat, int32_t textureWidth, int32_t textureHeight, uint32_t mipLevels);
 
     vk::SampleCountFlagBits getMaxUsableSampleCount();
@@ -267,11 +265,14 @@ private:
 
     std::vector<PhysicsObject> createSphereBox(uint32_t objectCount, float sphereRadius);
 
-    void createQueryPool();
+    void createTimeStampQueryPool();
+    void getTimeStampResults();
+
+    std::string formatIntStringWithCommas(int number);
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
-    const int PHYSICS_OBJECT_COUNT = 1'024;
-    const int WORKGROUP_SIZE_X = (PHYSICS_OBJECT_COUNT <= 256) ? PHYSICS_OBJECT_COUNT : 256;
+    const int PHYSICS_OBJECT_COUNT = 1024;
+    const int WORKGROUP_SIZE_X = (PHYSICS_OBJECT_COUNT <= 32) ? PHYSICS_OBJECT_COUNT : 32;
 
     GLFWwindow *window = nullptr;
     GLFWmonitor *monitor = nullptr;
@@ -402,6 +403,7 @@ private:
     vk::SampleCountFlagBits msaaSamples = vk::SampleCountFlagBits::e1;
 
     vk::DescriptorPool imguiDescriptorPool;
+    std::string objectString;
 
     vk::QueryPool queryPool;
     std::vector<uint64_t> timeStamps;
