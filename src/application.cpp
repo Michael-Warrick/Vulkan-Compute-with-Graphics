@@ -122,7 +122,6 @@ void Application::shutdown()
     logicalDevice.destroyDescriptorSetLayout(graphicsDescriptorSetLayout);
     logicalDevice.destroyDescriptorSetLayout(computeDescriptorSetLayout);
 
-    // Destroy models here
     footballModel.Destroy(logicalDevice);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -236,10 +235,8 @@ bool Application::checkValidationLayerSupport()
 
 std::vector<const char *> Application::getRequiredInstanceExtensions()
 {
-    // Retrieving all required GLFW extensions for instance creation
     glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-    // Adding all required GLFW extensions to the required extension list
     for (uint32_t i = 0; i < glfwExtensionCount; i++)
     {
         requiredExtensions.emplace_back(glfwExtensions[i]);
@@ -254,13 +251,6 @@ std::vector<const char *> Application::getRequiredInstanceExtensions()
     if (enableValidationLayers)
     {
         requiredExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-
-        // std::cout << "Required instance extensions (" << requiredExtensions.size() << "):\n";
-
-        // for (const auto &extension : requiredExtensions)
-        // {
-        //     std::cout << "\t" << extension << "\n";
-        // }
     }
 
     return requiredExtensions;
@@ -268,7 +258,6 @@ std::vector<const char *> Application::getRequiredInstanceExtensions()
 
 std::vector<vk::ExtensionProperties> Application::getAvailableInstanceExtensions()
 {
-    // Due to `vk::enumerateInstanceExtensionProperties()` being marked: "nodiscard", the return value must be handled
     vk::Result result = vk::enumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
     if (result != vk::Result::eSuccess)
     {
@@ -282,17 +271,6 @@ std::vector<vk::ExtensionProperties> Application::getAvailableInstanceExtensions
     {
         throw std::runtime_error(
             "Failed to enumerate instance extension properties. Error code: " + vk::to_string(result));
-    }
-
-    if (enableValidationLayers)
-    {
-        // Print all available extensions and their names
-        // std::cout << "Available instance extensions (" << extensionCount << "):\n";
-
-        // for (const auto &extension : availableExtensions)
-        // {
-        //     std::cout << "\t" << extension.extensionName << "\n";
-        // }
     }
 
     return availableExtensions;
@@ -411,11 +389,6 @@ void Application::pickPhysicalDevice()
 
     for (const auto &device : physicalDevices)
     {
-        if (enableValidationLayers)
-        {
-            // std::cout << "Targeted GPU: \n\t" << device.getProperties().deviceName << std::endl;
-        }
-
         if (isDeviceSuitable(device))
         {
             physicalDevice = device;
@@ -1910,7 +1883,6 @@ void Application::transitionImageLayout(vk::Image image, vk::Format format, vk::
 {
     vk::CommandBuffer commandBuffer = beginSingleTimeCommands(commandPool);
 
-    // Needs to be properly initialised...
     vk::ImageMemoryBarrier imageMemoryBarrier = vk::ImageMemoryBarrier()
                                                     .setOldLayout(oldLayout)
                                                     .setNewLayout(newLayout)
@@ -2340,7 +2312,7 @@ void Application::initImGui()
 {
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
-    ImGui::GetIO().Fonts->AddFontFromFileTTF("../resources/fonts/RobotoMono/RobotoMono-Regular.ttf", 20.0f);
+    ImGui::GetIO().Fonts->AddFontFromFileTTF("../resources/fonts/RobotoMono/RobotoMono-Regular.ttf", 26.0f);
 
     ImGui_ImplGlfw_InitForVulkan(window, true);
 

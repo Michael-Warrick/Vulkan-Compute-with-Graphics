@@ -15,7 +15,6 @@ layout(location = 2) in vec2 inTexCoords;
 layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragTexCoords;
 
-// Structure to hold particle data
 struct PhysicsObject {
     vec3 position;
     vec4 rotation;
@@ -74,6 +73,7 @@ mat4 rotate(mat4 model, float angleInRadians, vec3 axis) {
     return rotation * model;
 }
 
+// Reimplementation of glm::toMat4()
 mat4 quatToMat4(vec4 quat) {
     float quatXX = quat.x * quat.x;
     float quatYY = quat.y * quat.y;
@@ -103,6 +103,7 @@ mat4 quatToMat4(vec4 quat) {
     return resultMatrix;
 }
 
+// Reimplementation of glm::scale()
 mat4 scale(mat4 matrix, float scalingFactor) {
     mat4 scalingMatrix = mat4(
         scalingFactor, 0.0, 0.0, 0.0,

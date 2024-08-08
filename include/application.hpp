@@ -271,7 +271,7 @@ private:
     std::string formatIntStringWithCommas(int number);
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
-    const int PHYSICS_OBJECT_COUNT = 1024;
+    const int PHYSICS_OBJECT_COUNT = 1024 * 4;
     const int WORKGROUP_SIZE_X = (PHYSICS_OBJECT_COUNT <= 32) ? PHYSICS_OBJECT_COUNT : 32;
 
     GLFWwindow *window = nullptr;
@@ -393,9 +393,6 @@ private:
 
     const std::string MODEL_PATH = "resources/models/football/football.obj";
     const std::string TEXTURE_PATH = "resources/models/football/football.png";
-
-    const std::string GROUND_MODEL_PATH = "resources/models/ground/ground.obj";
-    const std::string GROUND_TEXTURE_PATH = "resources/models/ground/ground.png";
 
     Model footballModel;
     Model groundModel;
